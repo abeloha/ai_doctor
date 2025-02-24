@@ -1,5 +1,5 @@
 import streamlit as st
-import os
+
 import state
 from groq import Groq
 from datetime import datetime, timedelta
@@ -96,9 +96,9 @@ def handle_user_input(client, model):
 
 def show_chat_page():
     """Main function to render the chat page."""
-    app_name = os.getenv("APP_NAME")
-    model = os.getenv("GROQ_MODEL")
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    app_name = st.secrets["APP_NAME"]
+    model = st.secrets["GROQ_MODEL"]
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
     st.title(app_name)
     st.write(f"{state.get_logged_in_username()}'s personal AI doctor 👨‍⚕️")

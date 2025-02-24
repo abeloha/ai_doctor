@@ -1,11 +1,11 @@
 import streamlit as st
 import state
-import os
+
 import datetime
 
 def show_auth_page():
-    st.title('Welcome to ' + os.getenv("APP_NAME", "Our App"))
-    st.write(os.getenv("APP_DESCRIPTION"))
+    st.title('Welcome to ' + st.secrets["APP_NAME"])
+    st.write(st.secrets["APP_DESCRIPTION"])
     st.write('\n\n\n\n\n')
     
     tab1, tab2 = st.tabs(["Login", "Create an Account"])

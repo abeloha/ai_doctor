@@ -3,6 +3,7 @@ venv/
 data/
 chroma_db/
 .env
+secrets.toml
 .eggs
 .egg-info
 dist
@@ -33,3 +34,4 @@ coverage.xml
 migrations
 instance
 .pytest_cache
+.streamlit/

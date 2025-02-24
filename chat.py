@@ -66,6 +66,9 @@ def show_chat_page():
     # Handle user input and Groq response
     if prompt := st.chat_input("Your response", max_chars=1000):
         st.session_state.messages.append({"role": "user", "content": prompt})
+        state.save_message(state.get_logged_in_id(), "user", prompt)  # Save user message
+
+
         with st.chat_message(state.get_logged_in_username()):
             st.markdown(prompt)
 
@@ -89,4 +92,5 @@ def show_chat_page():
                     response_container.markdown(full_response)  # Update the display
 
             st.session_state.messages.append({"role": "assistant", "content": full_response})
+            state.save_message(state.get_logged_in_id(), "assistant", full_response)  # Save AI response
 

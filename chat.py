@@ -2,17 +2,19 @@ import streamlit as st
 import os
 import state
 from groq import Groq
+from datetime import datetime
+
 
 def show_chat_page():
     app_name = os.getenv("APP_NAME")
-    
+
     st.title(app_name)
     st.write(f"{state.get_logged_in_username()}'s personal AI doctor 👨‍⚕️")
 
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-    system_prompt = """
-    You are AyoMed, a friendly Nigerian medical AI acting as a virtual doctor. You provide expert but relatable healthcare advice with a mix of humor, Nigerian slang, and cultural references.  
+    system_prompt = f"""
+    You are {app_name}, a friendly Nigerian medical AI acting as a virtual doctor. You provide expert but relatable healthcare advice with a mix of humor, Nigerian slang, and cultural references.  
 
     ## **Core Behavior:**  
     - Always keep the conversation **focused on health**. If the user goes off-topic, dismiss it humorously and redirect.  
@@ -39,58 +41,111 @@ def show_chat_page():
     Stay professional, warm, and helpful. Your job is to keep the user’s health in check while making the experience engaging!  
     """
 
-    # Initializing the system prompt for the chatbot
+
+    # Initialize session state messages if not already present
     if not st.session_state.messages:
-        st.session_state.messages = [{
-            "role": "system",
-            "content": system_prompt
-        },
-        {
-            "role": "assistant",
-            "content": f"Hi {state.get_logged_in_first_name()}, how how are you today?"
-        }]
+        st.session_state.messages = []
+        
+        past_messages = state.get_user_messages(state.get_logged_in_id())
+
+        # Convert database messages into session format
+        if past_messages:
+            formatted_past_messages = [{"role": msg["role"], "content": msg["content"]} for msg in past_messages]
+            # Ensure messages are passed correctly to AI
+            st.session_state.messages = formatted_past_messages + st.session_state.messages
+
+    user_data = state.get_logged_in_user()
+    formatted_user_data = {
+        'name': user_data['name'],
+        'dob': user_data['dob'],
+        'medical_summary': None,
+        'medical_summary_timestamp': None,
+    }
+
+    
 
     # Display chat messages
     for message in st.session_state.messages:
         if message["role"] != "system":
-            role_name = message["role"]
-            avatar = None
-            if (message["role"] == "user"):
-                role_name = state.get_logged_in_username()
-            else:
-                avatar="👨‍⚕️"
-                role_name = app_name
+            role_name = state.get_logged_in_username() if message["role"] == "user" else app_name
+            avatar = None if message["role"] == "user" else "👨‍⚕️"
             with st.chat_message(role_name, avatar=avatar):
                 st.markdown(message["content"])
 
-    # Handle user input and Groq response
-    if prompt := st.chat_input("Your response", max_chars=1000):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        state.save_message(state.get_logged_in_id(), "user", prompt)  # Save user message
+
+    # Prepend system messages only once
+    if not st.session_state.system_message_is_set:
+        print("Prepending system messages")
+        st.session_state.messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": f"The user details are: {formatted_user_data}. Start the conversation based on the medical summary and chat history."}
+        ] + st.session_state.messages
+        st.session_state.system_message_is_set = True
 
 
+        # Generate AI's initial response if it's the first interaction
+        try:
+            response_stream = client.chat.completions.create(
+                model=os.getenv("GROQ_MODEL"),
+                messages=st.session_state.messages,
+                stream=True
+            )
+
+            response_container = st.empty()
+            initial_response = ""
+
+            for chunk in response_stream:
+                text = chunk.choices[0].delta.content
+                if text:
+                    initial_response += text
+                    response_container.markdown(initial_response)
+
+            if initial_response.strip():  
+                st.session_state.messages.append({"role": "assistant", "content": initial_response})
+                state.save_message(state.get_logged_in_id(), "assistant", initial_response)
+
+        except Exception as e:
+            st.error(f"Oops! Something went wrong. Please try again.")
+            print(f"Error in initial AI response: {e}")  # Log for debugging
+
+    # Handle user input
+    if prompt := st.chat_input("Talk to your doctor ", max_chars=1000):
         with st.chat_message(state.get_logged_in_username()):
             st.markdown(prompt)
 
+        # Append user message
+        user_message = {"role": "user", "content": prompt}
+        st.session_state.messages.append(user_message)
+        state.save_message(state.get_logged_in_id(), "user", prompt)  # Save user message
+
+        # Save initial AI response only now that user has responded
+        if "initial_ai_response" in st.session_state:
+            st.session_state.messages.append({"role": "assistant", "content": st.session_state.initial_ai_response})
+            state.save_message(state.get_logged_in_id(), "assistant", st.session_state.initial_ai_response)
+            del st.session_state.initial_ai_response  # Clear stored response after saving
+
+        # Get AI response to user input
         with st.chat_message("assistant", avatar="👨‍⚕️"):
-            response_stream = client.chat.completions.create(
-                model=os.getenv("GROQ_MODEL"),
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
-                ],
-                stream=True  # Enable streaming
-            )
+            try:
+                response_stream = client.chat.completions.create(
+                    model=os.getenv("GROQ_MODEL"),
+                    messages=st.session_state.messages,
+                    stream=True
+                )
 
-            response_container = st.empty()  # Placeholder for the streamed text
-            full_response = ""
+                response_container = st.empty()
+                full_response = ""
 
-            for chunk in response_stream:
-                text = chunk.choices[0].delta.content  # Extract streamed content
-                if text:
-                    full_response += text
-                    response_container.markdown(full_response)  # Update the display
+                for chunk in response_stream:
+                    text = chunk.choices[0].delta.content
+                    if text:
+                        full_response += text
+                        response_container.markdown(full_response)
 
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-            state.save_message(state.get_logged_in_id(), "assistant", full_response)  # Save AI response
+                if full_response.strip():  
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    state.save_message(state.get_logged_in_id(), "assistant", full_response)
 
+            except Exception as e:
+                st.error(f"{app_name} is having a little trouble responding right now. Try again later!")
+                print(f"Error in AI response to user input: {e}")  # Log for debugging

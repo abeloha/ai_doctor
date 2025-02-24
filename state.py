@@ -138,11 +138,11 @@ def save_message(user_id, role, content):
     conn.close()
 
 
-def get_user_messages(user_id):
+def get_user_latest_messages(user_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
-    cursor.execute("SELECT role, content, timestamp FROM messages WHERE user_id = %s ORDER BY timestamp ASC", (user_id,))
+    cursor.execute("SELECT role, content, timestamp FROM messages WHERE user_id = %s ORDER BY id DESC LIMIT 10", (user_id,))
     messages = cursor.fetchall()
     
     conn.close()

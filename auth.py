@@ -27,7 +27,7 @@ def show_auth_page():
 
     with tab2:
         st.subheader("Create an Account")
-        reg_name = st.text_input("Name", max_chars=40)
+        reg_name = st.text_input("What is your name?", max_chars=40)
         
         today = datetime.date.today()
 
@@ -35,15 +35,21 @@ def show_auth_page():
         min_birth_date = today.replace(year=today.year - 12)
         max_birth_date = today.replace(year=today.year - 100)
 
-        reg_dob = st.date_input("Date of Birth", max_value=min_birth_date, min_value=max_birth_date)
+        reg_dob = st.date_input("When were you born?", max_value=min_birth_date, min_value=max_birth_date)
 
-        reg_phone = st.text_input("Phone Number", max_chars=11, key="reg_phone")
-        reg_password = st.text_input("Password", type="password", key="reg_password")
+        reg_phone = st.text_input("Your Phone number", max_chars=11, key="reg_phone")
+        reg_password = st.text_input("Password/Pin", type="password", key="reg_password")
 
         if st.button("Register"):
             if not reg_name or not reg_dob or not reg_phone or not reg_password:
                 st.error("All fields are required!")
             else:
+
+                # check phone
+                if state.check_phone_exists(reg_phone):
+                    st.error("Phone number already registered")
+                    return
+
                 # Age validation: must be at least 12 years old
                 min_birth_date = today.replace(year=today.year - 12)
 
@@ -53,4 +59,4 @@ def show_auth_page():
                     st.success("Registration successful! Logging in...")
                     st.rerun()  # Rerun to update UI
                 else:
-                    st.error("Phone number already registered")
+                    st.error("An error occurred while registering. Try again")

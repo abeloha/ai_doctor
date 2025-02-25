@@ -66,6 +66,19 @@ def is_logged_in():
     return st.session_state.logged_in
 
 # Authenticate user from the MySQL database
+def check_phone_exists(phone):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT id, phone, name, dob FROM users WHERE phone = %s", (phone,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        return True
+
+    return False
+
 def authenticate_user(phone, password):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -98,7 +111,17 @@ def register_user(phone, password, name, dob):
     conn.commit()
     
     # login the new user
-    authenticate_user(phone, password)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, phone, name, dob FROM users WHERE phone = %s AND password = %s", (phone, hashed_pw))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        st.session_state.logged_in = True
+        st.session_state.user_data = user  # Store user data in session
+        return True
+        
+    return False
 
 # Get logged-in user data from session (no repeated DB queries)
 def get_logged_in_user():
@@ -169,7 +192,8 @@ def get_system_prompt():
     You are {app_name}, a Nigerian AI doctor. You provide health advice with humor and cultural references.
     ## **Guidelines:**
     - Focus only on health. Redirect off-topic humorously.
-    - Adjust **language** (English/Pidgin) based on user.
+    - Do not answer questions that are not related to health.
+    - Adjust language based on user.
     - Recommend **medications, tests, or hospital visits** as needed.
     - Use humor but keep medical info clear.
     ## **Response Rules:**
@@ -179,7 +203,7 @@ def get_system_prompt():
     4. If off-topic? Redirect humorously.
     5. Keep response very short.
     ## **Language & Humor:**
-    - Mix Pidgin & English based on user preference.
+    - Mix English with a bit Pidgin.
     - If user reply in English 3 times in a row, then stop Pidgin.
     - Example slang:
     - Urgency: *"Quick-quick!"*

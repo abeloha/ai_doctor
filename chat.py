@@ -25,8 +25,8 @@ def initialize_session():
     """Initialize session state variables."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "system_message_is_set" not in st.session_state:
-        st.session_state.system_message_is_set = False
+    if "welcome_message_is_sent" not in st.session_state:
+        st.session_state.welcome_message_is_sent = False
 
 def load_past_messages():
     """Load past messages from the database into session state."""
@@ -46,16 +46,34 @@ def display_messages(app_name):
     for message in st.session_state.messages:
         if message["role"] != "system":
             role_name = state.get_logged_in_username() if message["role"] == "user" else app_name
-            avatar = None if message["role"] == "user" else "👨‍⚕️"
+            avatar = None if message["role"] == "user" else "🩺"
+            # "👨‍⚕️"
             with st.chat_message(role_name, avatar=avatar):
                 st.markdown(message["content"])
 
-def get_ai_response(client, model):
+# use additional_instructions to customize the AI's behavior. This is added at the bottom of the message
+def get_ai_response(client, model, additional_instructions:str = ""):
+
+    # **Trim messages to last 15 entries**
+    history = st.session_state.messages[-15:]
+
+    # Add instructions to the message
+    system_prompt = state.get_system_prompt()
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": f"The user details are: {state.get_logged_in_user_basic_info()}."},
+    ] + history
+
+    if (additional_instructions):
+         messages.append(
+            {"role": "system", "content": additional_instructions}
+        )
+
     """Fetch AI response from Groq API."""
     try:
         response_stream = client.chat.completions.create(
             model=model,
-            messages=st.session_state.messages,
+            messages=messages,
             stream=True
         )
 
@@ -76,7 +94,13 @@ def get_ai_response(client, model):
 
 def handle_user_input(client, model):
     """Handle user input and get AI response."""
-    if prompt := st.chat_input("Talk to your doctor", max_chars=1000):
+    if prompt := st.chat_input("Talk to your doctor", max_chars=500):
+
+        # Save the AI first message now that user has started the conversation
+        if state.unsaved_ai_message:
+            state.save_message(state.get_logged_in_id(), "assistant", state.unsaved_ai_message)
+            state.unsaved_ai_message = None
+
         with st.chat_message(state.get_logged_in_username()):
             st.markdown(prompt)
 
@@ -85,14 +109,11 @@ def handle_user_input(client, model):
         state.save_message(state.get_logged_in_id(), "user", prompt)
 
         # Get AI response
-        with st.chat_message("assistant", avatar="👨‍⚕️"):
+        with st.chat_message("assistant", avatar="🩺"):
             response = get_ai_response(client, model)
             if response:
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 state.save_message(state.get_logged_in_id(), "assistant", response)
-
-        # **Trim messages to last 10 entries**
-        st.session_state.messages = st.session_state.messages[-10:]
 
 def show_chat_page():
     """Main function to render the chat page."""
@@ -103,46 +124,17 @@ def show_chat_page():
     st.title(app_name)
     st.write(f"{state.get_logged_in_username()}'s personal AI doctor 👨‍⚕️")
 
-    initialize_session()
-    load_past_messages()
-    
-    system_prompt = f"""
-    You are {app_name}, a Nigerian AI doctor. You provide health advice with humor and cultural references.
-
-    ## **Guidelines:**
-    - Focus only on health. Redirect off-topic chats humorously.
-    - Adjust **language** (English/Pidgin) based on user.
-    - Recommend **medications, tests, or hospital visits** as needed.
-    - Use humor but keep medical info clear.
-
-    ## **Response Rules:**
-    1. One question per response.
-    2. Emergency? Urge immediate hospital visit.
-    3. Clarify traditional remedies before recommending.
-    4. If off-topic? Redirect humorously.
-
-    ## **Language & Humor:**
-    - Mix Pidgin & English based on user preference.
-    - Example slang:
-    - Urgency: *"Quick-quick!"*
-    - Reassurance: *"No shaking!"*
-    - Analogies: *"This headache stubborn like Lagos traffic!"*
-    """
-
-    if not st.session_state.system_message_is_set:
-        st.session_state.messages = [
-            {"role": "system", "content": system_prompt},
-        ] + st.session_state.messages
-
-        st.session_state.messages.append({"role": "system", "content": f"The user details are: {state.get_logged_in_user()}. Start the conversation based on history."})
-        st.session_state.system_message_is_set = True
+    if not st.session_state.welcome_message_is_sent:
+        initialize_session()
+        load_past_messages()
+        st.session_state.welcome_message_is_sent = True
 
         # AI's first response
-        with st.chat_message("assistant", avatar="👨‍⚕️"):
-            response = get_ai_response(client, model)
+        with st.chat_message("assistant", avatar="🩺"):
+            response = get_ai_response(client, model, additional_instructions="Start the conversation.")
             if response:
                 st.session_state.messages.append({"role": "assistant", "content": response})
-                state.save_message(state.get_logged_in_id(), "assistant", response)
+                state.unsaved_ai_message = response
 
     display_messages(app_name)
     handle_user_input(client, model)

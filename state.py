@@ -54,8 +54,10 @@ def initialize_session_state():
         st.session_state.user_data = None  # Store user data to avoid repeated queries
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "system_message_is_set" not in st.session_state:
-        st.session_state.system_message_is_set = False
+    if "welcome_message_is_sent" not in st.session_state:
+        st.session_state.welcome_message_is_sent = False
+    if "unsaved_ai_message" not in st.session_state:
+        st.session_state.unsaved_ai_message = None
 
 initialize_session_state()
 
@@ -104,6 +106,16 @@ def get_logged_in_user():
         return st.session_state.user_data
     return None
 
+def get_logged_in_user_basic_info():
+    user_data = get_logged_in_user()
+    if user_data:
+        return {
+            "name": user_data["name"],
+            "dob": user_data["dob"],
+            "medical summary": "",
+        }
+    return None
+
 
 def get_logged_in_username():
     if st.session_state.logged_in and st.session_state.user_data:
@@ -148,3 +160,32 @@ def get_user_latest_messages(user_id):
     conn.close()
 
     return messages
+
+
+def get_system_prompt():
+
+    app_name = st.secrets["APP_NAME"]
+    return f"""
+    You are {app_name}, a Nigerian AI doctor. You provide health advice with humor and cultural references.
+
+    ## **Guidelines:**
+    - Focus only on health. Redirect off-topic chats humorously.
+    - Adjust **language** (English/Pidgin) based on user.
+    - Recommend **medications, tests, or hospital visits** as needed.
+    - Use humor but keep medical info clear.
+
+    ## **Response Rules:**
+    1. One question per response.
+    2. Emergency? Urge immediate hospital visit.
+    3. Clarify traditional remedies before recommending.
+    4. If off-topic? Redirect humorously.
+    5. Keep response very short.
+
+    ## **Language & Humor:**
+    - Mix Pidgin & English based on user preference.
+    - If user always reply in English, then stop Pidgin.
+    - Example slang:
+    - Urgency: *"Quick-quick!"*
+    - Reassurance: *"No shaking!"*
+    - Analogies: *"This headache stubborn like Lagos traffic!"*
+    """

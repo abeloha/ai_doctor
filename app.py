@@ -5,7 +5,24 @@ import state
 
 
 # Set up the page
-st.set_page_config(page_title="Chat App", page_icon="💬")
+# Set page title and description
+st.set_page_config(
+    page_title=st.secrets["APP_NAME"],
+    page_icon="🩺",  
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# Set metadata (workaround)
+st.markdown(
+    f"""
+    <meta name="description" content="{st.secrets['APP_DESCRIPTION']}">
+    <meta name="keywords" content="AI Doctor, Health Companion, Medical AI, Nigeria">
+    """,
+    unsafe_allow_html=True
+)
+
+
 
 # Initialize session state variables
 state.initialize_session_state()

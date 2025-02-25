@@ -3,6 +3,7 @@ import state
 
 import datetime
 
+
 def show_auth_page():
     st.title('Welcome to ' + st.secrets["APP_NAME"])
     st.write(st.secrets["APP_DESCRIPTION"])

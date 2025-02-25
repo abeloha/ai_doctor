@@ -25,6 +25,7 @@ def get_db_connection():
             phone VARCHAR(15) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
             name VARCHAR(50) NOT NULL,
+            gender ENUM('Male', 'Female') NULL,
             dob DATE NOT NULL
         )
     ''')
@@ -39,6 +40,7 @@ def get_db_connection():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
+
     conn.commit()
     return conn
 
@@ -70,7 +72,7 @@ def check_phone_exists(phone):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT id, phone, name, dob FROM users WHERE phone = %s", (phone,))
+    cursor.execute("SELECT id, phone, name, dob, gender FROM users WHERE phone = %s", (phone,))
     user = cursor.fetchone()
     conn.close()
 
@@ -84,7 +86,7 @@ def authenticate_user(phone, password):
     cursor = conn.cursor(dictionary=True)
     hashed_pw = hash_password(password)
 
-    cursor.execute("SELECT id, phone, name, dob FROM users WHERE phone = %s AND password = %s", (phone, hashed_pw))
+    cursor.execute("SELECT id, phone, name, dob, gender FROM users WHERE phone = %s AND password = %s", (phone, hashed_pw))
     user = cursor.fetchone()
     conn.close()
 
@@ -95,7 +97,7 @@ def authenticate_user(phone, password):
     return False
 
 # Register a new user in MySQL
-def register_user(phone, password, name, dob):
+def register_user(phone, password, name, dob, gender):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -106,13 +108,13 @@ def register_user(phone, password, name, dob):
         return False  # User already exists
 
     hashed_pw = hash_password(password)
-    cursor.execute("INSERT INTO users (phone, password, name, dob) VALUES (%s, %s, %s, %s)", 
-                   (phone, hashed_pw, name, dob))
+    cursor.execute("INSERT INTO users (phone, password, name, dob, gender) VALUES (%s, %s, %s, %s, %s)", 
+                   (phone, hashed_pw, name, dob, gender))
     conn.commit()
     
     # login the new user
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, phone, name, dob FROM users WHERE phone = %s AND password = %s", (phone, hashed_pw))
+    cursor.execute("SELECT id, phone, name, dob, gender FROM users WHERE phone = %s", (phone,))
     user = cursor.fetchone()
     conn.close()
 
@@ -120,7 +122,7 @@ def register_user(phone, password, name, dob):
         st.session_state.logged_in = True
         st.session_state.user_data = user  # Store user data in session
         return True
-        
+
     return False
 
 # Get logged-in user data from session (no repeated DB queries)
@@ -135,6 +137,7 @@ def get_logged_in_user_basic_info():
         return {
             "name": user_data["name"],
             "dob": user_data["dob"],
+            "gender": user_data["gender"],
             "medical summary": "",
         }
     return None

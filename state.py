@@ -2,11 +2,6 @@ import streamlit as st
 import mysql.connector
 import hashlib
 
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
 # Get MySQL database credentials from .env
 DB_CONFIG = {
     "host": st.secrets["DB_HOST"],
